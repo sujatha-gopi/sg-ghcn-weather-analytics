@@ -1,0 +1,13 @@
+[project]
+name = "sg-ghcn-weather-analytics"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "google-cloud-storage>=3.10.0",
+    "pandas>=3.0.1",
+    "pyarrow>=23.0.1",
+    "requests>=2.32.5",
+    "tqdm>=4.67.3",
+]
