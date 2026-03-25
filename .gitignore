@@ -2,6 +2,7 @@ cat > .gitignore << 'EOF'
 # Environment variables - NEVER commit these
 .env
 *.env
+.env_encoded
 
 # GCP credentials
 *.json
@@ -34,4 +35,4 @@ terraform/.terraform.lock.hcl
 # OS
 .DS_Store
 Thumbs.db
-EOF
+EOFkestra/.env
