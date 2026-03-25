@@ -36,3 +36,4 @@ terraform/.terraform.lock.hcl
 .DS_Store
 Thumbs.db
 EOFkestra/.env
+kestra/.env_encoded

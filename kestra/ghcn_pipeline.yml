@@ -1,0 +1,122 @@
+# paste your final working flow YAML here
+id: ghcn_weather_pipeline
+namespace: ghcn.weather
+
+description: |
+  GHCN-Daily Weather Analytics Pipeline
+  Downloads NOAA weather data, loads to GCS, updates BigQuery.
+  Runs daily to pick up new data. Source data is publicly available
+  at http://noaa-ghcn-pds.s3.amazonaws.com — no AWS credentials needed.
+
+inputs:
+  - id: year
+    type: INT
+    defaults: 2024
+    description: Year to process
+
+tasks:
+  - id: ingest_to_gcs
+    type: io.kestra.plugin.scripts.python.Script
+    description: Download NOAA GHCN data and upload to GCS
+    containerImage: python:3.12-slim
+    beforeCommands:
+      - pip install pandas pyarrow google-cloud-storage requests tqdm -q
+    script: |
+      import os, io, sys, logging, requests
+      import pandas as pd
+      import json
+      from google.cloud import storage
+      from tqdm import tqdm
+
+      logging.basicConfig(level=logging.INFO,
+          format="%(asctime)s %(levelname)s %(message)s")
+      log = logging.getLogger(__name__)
+
+      # Config
+      GCS_BUCKET     = "ghcn-weather-datalake-mythic-altar-485103-v8"
+      GCS_RAW_PREFIX = "raw/yearly"
+      BASE_URL       = "http://noaa-ghcn-pds.s3.amazonaws.com/csv/by_year"
+      YEAR           = {{inputs.year}}
+      COLUMNS = ["station_id","date","element","data_value",
+                 "m_flag","q_flag","s_flag","obs_time"]
+      DTYPES  = {"station_id":"string","date":"string",
+                 "element":"string","data_value":"Int64",
+                 "m_flag":"string","q_flag":"string",
+                 "s_flag":"string","obs_time":"string"}
+              
+      service_account_info = json.loads(r'''{{ secret('GCP_SERVICE_ACCOUNT') }}''')
+      client = storage.Client.from_service_account_info(service_account_info)
+      bucket = client.bucket(GCS_BUCKET)
+      blob_path = f"{GCS_RAW_PREFIX}/{YEAR}.parquet"
+
+      if bucket.blob(blob_path).exists():
+          log.info(f"Year {YEAR} already exists in GCS — skipping")
+          sys.exit(0)
+
+      log.info(f"Downloading {YEAR} data from NOAA...")
+      url = f"{BASE_URL}/{YEAR}.csv"
+      resp = requests.get(url, stream=True, timeout=300)
+      resp.raise_for_status()
+      buf = io.BytesIO()
+      for chunk in resp.iter_content(chunk_size=1024*1024):
+          buf.write(chunk)
+      buf.seek(0)
+
+      log.info("Parsing CSV...")
+      df = pd.read_csv(io.BytesIO(buf.read()),
+                       header=0, names=COLUMNS, dtype=DTYPES)
+      log.info(f"Rows: {len(df):,}")
+
+      log.info("Converting to Parquet...")
+      out = io.BytesIO()
+      df.to_parquet(out, index=False, engine="pyarrow")
+      out.seek(0)
+
+      log.info("Uploading to GCS...")
+      bucket.blob(blob_path).upload_from_file(
+          out, content_type="application/octet-stream")
+      log.info(f"Done — gs://{GCS_BUCKET}/{blob_path}")
+
+  - id: load_to_bigquery
+    type: io.kestra.plugin.gcp.bigquery.Query
+    description: Refresh BigQuery table with latest data
+    projectId: mythic-altar-485103-v8
+    serviceAccount: "{{ secret('GCP_SERVICE_ACCOUNT') }}"
+    sql: |
+      INSERT INTO `mythic-altar-485103-v8.ghcn_weather.ghcn_measurements`
+      SELECT
+        LEFT(station_id, 2)            AS country_code,
+        station_id,
+        PARSE_DATE('%Y%m%d', date)     AS measurement_date,
+        element,
+        data_value,
+        m_flag,
+        q_flag,
+        s_flag,
+        obs_time
+      FROM
+        `mythic-altar-485103-v8.ghcn_weather.ext_ghcn_measurements`
+      WHERE
+        LEFT(station_id, 2) IN (
+          'US','CA','MX','BR','AR','CL',
+          'UK','GM','FR','IT','SP','SW','NO',
+          'SF','NI','EG','KE','MO',
+          'IN','CH','JA','SG','SA','TU',
+          'AS','NZ'
+        )
+        AND PARSE_DATE('%Y%m%d', date) >= DATE({{inputs.year}}, 1, 1)
+        AND PARSE_DATE('%Y%m%d', date) <= DATE({{inputs.year}}, 12, 31)
+        AND NOT EXISTS (
+          SELECT 1
+          FROM `mythic-altar-485103-v8.ghcn_weather.ghcn_measurements` t
+          WHERE t.station_id = station_id
+            AND t.measurement_date = PARSE_DATE('%Y%m%d', date)
+            AND t.element = element
+        )
+
+triggers:
+  - id: daily_schedule
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "0 6 * * *"
+    inputs:
+      year: "{{ trigger.date | date('yyyy') }}"
