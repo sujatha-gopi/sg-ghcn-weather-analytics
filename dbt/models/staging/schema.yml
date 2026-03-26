@@ -1,0 +1,75 @@
+version: 2
+
+models:
+  - name: stg_ghcn_measurements
+    description: >
+      Cleaned GHCN-Daily measurements. Quality-flagged rows removed,
+      units converted to standard (°C and mm), sentinel values filtered.
+    columns:
+      - name: station_id
+        description: "11-character GHCN station identifier"
+        tests:
+          - not_null
+      - name: measurement_date
+        description: "Date of observation"
+        tests:
+          - not_null
+      - name: element
+        description: "Weather element type"
+        tests:
+          - not_null
+          - accepted_values:
+              config:
+                severity: warn
+              values: ['TMAX', 'TMIN', 'PRCP', 'SNOW', 'SNWD']
+      - name: measurement_value
+        description: "Measurement value in standard units"
+        tests:
+          - not_null
+      - name: unit
+        description: "Unit of measurement"
+        tests:
+          - not_null
+          - accepted_values:
+              config:
+                severity: warn
+              values: ['celsius', 'mm']
+      - name: country_code
+        description: "FIPS 2-letter country code"
+        tests:
+          - not_null
+
+  - name: stg_ghcn_stations
+    description: >
+      Cleaned station metadata with country names and continent groupings.
+    columns:
+      - name: station_id
+        description: "11-character GHCN station identifier"
+        tests:
+          - not_null
+          - unique
+      - name: country_code
+        description: "FIPS 2-letter country code"
+        tests:
+          - not_null
+      - name: country_name
+        description: "Full country name"
+        tests:
+          - not_null
+      - name: continent
+        description: "Continent grouping"
+        tests:
+          - not_null
+          - accepted_values:
+              config:
+                severity: warn
+              values: ['North America', 'South America', 'Europe',
+                       'Africa', 'Asia', 'Oceania']
+      - name: latitude
+        description: "Station latitude in decimal degrees"
+        tests:
+          - not_null
+      - name: longitude
+        description: "Station longitude in decimal degrees"
+        tests:
+          - not_null

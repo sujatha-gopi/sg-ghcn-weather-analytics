@@ -1,0 +1,39 @@
+version: 2
+
+sources:
+  - name: ghcn_weather
+    database: mythic-altar-485103-v8
+    schema: ghcn_weather
+    description: "Raw GHCN-Daily weather data loaded from NOAA via GCS"
+    tables:
+      - name: ghcn_measurements
+        description: "Partitioned native table with 176M rows across 25 countries 2020-2024"
+        columns:
+          - name: station_id
+            description: "11-character GHCN station ID. First 2 chars = FIPS country code"
+          - name: measurement_date
+            description: "Date of observation"
+          - name: element
+            description: "Weather element type: TMAX, TMIN, PRCP, SNOW, SNWD"
+          - name: data_value
+            description: "Raw measurement value in NOAA units (tenths of degrees/mm)"
+          - name: q_flag
+            description: "Quality flag — blank means passed all QA checks"
+          - name: country_code
+            description: "FIPS 2-letter country code extracted from station_id"
+
+      - name: ext_ghcn_stations
+        description: "Station metadata — 129,657 stations worldwide"
+        columns:
+          - name: station_id
+            description: "11-character station ID"
+          - name: country_code
+            description: "FIPS 2-letter country code"
+          - name: latitude
+            description: "Station latitude in decimal degrees"
+          - name: longitude
+            description: "Station longitude in decimal degrees"
+          - name: elevation_m
+            description: "Station elevation in meters"
+          - name: station_name
+            description: "Human readable station name"

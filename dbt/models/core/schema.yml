@@ -1,0 +1,46 @@
+version: 2
+
+models:
+  - name: fact_weather_daily
+    description: >
+      Final analytical table joining cleaned measurements with station metadata.
+      Grain: one row per station + date + element.
+      156 million rows covering 25 countries across 6 continents, 2020-2024.
+      Used directly by Looker Studio dashboard.
+    columns:
+      - name: measurement_date
+        description: "Date of observation"
+        tests:
+          - not_null
+      - name: country_code
+        description: "FIPS 2-letter country code"
+        tests:
+          - not_null
+      - name: country_name
+        description: "Full country name"
+        tests:
+          - not_null
+      - name: continent
+        description: "Continent grouping for dashboard filters"
+        tests:
+          - not_null
+      - name: station_id
+        description: "11-character GHCN station identifier"
+        tests:
+          - not_null
+      - name: element
+        description: "Weather element: TMAX, TMIN, PRCP, SNOW, SNWD"
+        tests:
+          - not_null
+          - accepted_values:
+              config:
+                severity: warn
+              values: ['TMAX', 'TMIN', 'PRCP', 'SNOW', 'SNWD']
+      - name: measurement_value
+        description: "Measurement value in standard units"
+        tests:
+          - not_null
+      - name: unit
+        description: "Unit of measurement: celsius or mm"
+        tests:
+          - not_null
