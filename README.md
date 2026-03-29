@@ -293,6 +293,20 @@ Open: https://lookerstudio.google.com/s/hCVUq4N1NvY
 - `accepted_values` checks on element types and units
 - All 25 tests pass against 156 million rows
 
+## Screenshots
+
+### Dashboard
+![Dashboard](images/dashboard.png)
+
+### Kestra Pipeline Topology
+![Kestra Flow](images/kestra_flow.png)
+
+### Kestra Successful Execution
+![Kestra Execution](images/kestra_execution.png)
+
+### BigQuery Tables
+![BigQuery Tables](images/bigquery_tables.png)
+
 ## Acknowledgements
 
 - NOAA for providing GHCN-Daily as open public data
