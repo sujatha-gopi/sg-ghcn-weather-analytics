@@ -119,4 +119,4 @@ triggers:
     type: io.kestra.plugin.core.trigger.Schedule
     cron: "0 6 * * *"
     inputs:
-      year: "{{ trigger.date | date('yyyy') }}"
+      year: "{{ now() | date('yyyy') | int }}"
