@@ -105,6 +105,43 @@ Quality-flagged rows: ~203,000 out of 187 million (0.1%)
 | Package manager | UV |
 | Containerization | Docker + Docker Compose |
 
+## Pipeline Type — Batch with Full Workflow Orchestration
+
+This project implements a **batch pipeline** orchestrated end-to-end using Kestra.
+
+### Why batch and not streaming?
+NOAA publishes GHCN-Daily data once per day — the dataset is updated daily at a
+fixed time. A batch pipeline is the correct architectural choice for this data
+source. Streaming would add unnecessary complexity without any benefit since
+the source data itself is not real-time.
+
+### What is orchestrated end-to-end?
+The Kestra pipeline (`kestra/ghcn_pipeline.yml`) runs daily at 06:00 UTC and
+executes the following steps automatically without any manual intervention:
+
+**Step 1 — `ingest_to_gcs` task:**
+- Downloads the latest NOAA GHCN-Daily CSV file via public HTTP
+- Converts from CSV to Parquet format (90% size reduction)
+- Uploads the Parquet file to GCS data lake
+- Skips if the file already exists (idempotent)
+
+**Step 2 — `load_to_bigquery` task:**
+- Reads from the GCS-backed external table
+- Filters to our 25 selected countries
+- Inserts new records into the partitioned BigQuery table
+- Uses NOT EXISTS to prevent duplicate loads (idempotent)
+
+Both steps run inside Docker containers managed by Kestra, triggered by a
+cron schedule. The pipeline can also be triggered manually with a specific
+year as input — useful for backfills.
+
+### Evidence of orchestration
+- Kestra flow: `kestra/ghcn_pipeline.yml`
+- Successful execution screenshot: `images/kestra_execution.png`
+- Pipeline topology screenshot: `images/kestra_flow.png`
+- The pipeline was tested end-to-end with 2025 data — successfully downloaded,
+  converted, uploaded to GCS, and loaded into BigQuery automatically
+  
 ## Tools Not Covered in the Course
 
 ### Looker Studio
